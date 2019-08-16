@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <memory>
-//#include <typeinfo>
 #include <map>
 #include <utility>
 #include "utils/utils.h"
@@ -13,23 +12,20 @@ namespace cntnr {
 
 class Container {
 
+protected:
+
 	template<class InstanceType, class Ret, class ...Deps>
 	using class_member_function = Ret(InstanceType::*)(std::shared_ptr<Deps> ...);
 
 	template<class Ret ,class ...Deps>
 	using ctor_function = Ret(*)(Deps ...);
 
-	//class RegisteredType;
-	//using CreateFn = std::function<std::shared_ptr<void>(RegisteredType&)>;
-public:
-
-	class RegisteredType {//TODO: make it protected 
+	class RegisteredType {
 	public:
 		using CreateFn = std::function<std::shared_ptr<void>(RegisteredType&)>;
 	private:
 		CreateFn _create;
 	public:
-		//const std::type_info* _typeinfo;
 		const void* _compiletimeType;
 		bool isSingelton;
 		std::shared_ptr<void> obj = nullptr;
@@ -42,26 +38,7 @@ public:
 			return _create(*this);
 		}
 
-	/*	RegisteredType(RegisteredType&& other){
-			_typeinfo = other._typeinfo;
-			_create = std::move(other._create);
-			isSingelton = other.isSingelton;
-			other._typeinfo = NULL;
-			//other._create = ???
-		}*/
-
 		 ~RegisteredType() {}
-
-		/*template<class T>
-		RegisteredType& as() {
-			_compiletimeType = compiletimeTypeid<T>();
-			return *this;
-		}*/
-
-		//RegisteredType& alwaysNew() {
-		//	isSingelton = false;
-		//	return *this;
-		//}
 
 		std::shared_ptr<void> getInstance() {
 			return _create(*this);
@@ -71,16 +48,10 @@ public:
 
 	std::map<const void*, std::vector<RegisteredType> > typeRegisteredTypeMap;
 
-	Container(){
-#ifdef DEBUG_MY_CODE
-		Serial.println("Container CTOR");
-#endif
-	}
-	 ~Container(){
-#ifdef DEBUG_MY_CODE
-		Serial.println("Container DTOR");
-#endif
-	}
+public:
+
+	Container(){}
+	 ~Container(){}
 
 	/**
 	 * Registers instance of an object 
@@ -129,7 +100,6 @@ public:
 			std::shared_ptr<Ret> obj = std::static_pointer_cast<Ret>(regType.obj);
 			if(regType.obj == nullptr) {
 				 obj = this->ctorFunctionResolver(ctorFnc);
-				//obj = this->resolveInner<T>();
 				if(regType.isSingelton)
 					regType.obj = obj;
 			}
@@ -147,7 +117,7 @@ public:
 	std::vector<std::shared_ptr<T>> resolveAll() {
 		std::vector<std::shared_ptr<T>> t_vector;
 		if (typeRegisteredTypeMap.find(compiletimeTypeid<T>())== typeRegisteredTypeMap.end())	//we didnt register it
-			return t_vector;//empty vector
+			return t_vector;
 
 		for (auto &t : typeRegisteredTypeMap[compiletimeTypeid<T>()]) // access by reference to avoid copying
 		{
@@ -175,7 +145,6 @@ public:
 	 */
 	template<class T, typename std::enable_if<(!is_vector<T>::value && !is_shared_ptr<T>::value), void>::type* = nullptr>
 	std::shared_ptr<T> resolve() {
-		//check if we have that type registered
 		if (typeRegisteredTypeMap.find(compiletimeTypeid<T>())== typeRegisteredTypeMap.end()) //we didnt register it
 			return nullptr;
 		return std::static_pointer_cast<T>(typeRegisteredTypeMap[compiletimeTypeid<T>()].front().create());
@@ -195,10 +164,6 @@ public:
 	 */
 	template<class InstanceType, class Ret, class ...Deps>
 	Ret memberFunctionResolver(InstanceType& instance, class_member_function<InstanceType, Ret, Deps...> ctorFnc){
-		//std::cout << typeid(InstanceType).name() << std::endl;
-		//using expander = int[];
-		//(void)expander{0, ((void)(std::cout << typeid(Deps).name() << std::endl), 0)...};
-
 		return (instance.*ctorFnc)( resolve<Deps>() ...);
 	}
 
@@ -210,15 +175,6 @@ public:
 	std::shared_ptr<Ret> ctorFunctionResolver(ctor_function< std::shared_ptr<Ret>, Deps ...> ctorFunction){
 		return ctorFunction(resolve<Deps>() ...);
 	}
-
-protected:
-/*	template<class T>
-	std::shared_ptr<T> defaultCreator(){
-		std::shared_ptr<T> obj = std::make_shared<T>();
-		this->memberFunctionResolver(*obj ,&T::start);
-		return obj;
-	}*/
-
 };
 
 } /* namespace moduleFramework */
